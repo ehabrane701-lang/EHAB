@@ -1,4 +1,3 @@
-
 import os
 import json
 import re
@@ -28,7 +27,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # إعداد السجل (Logging)
 logging_format = "[%(asctime)s] %(levelname)s: %(message)s"
-# إذا كان هناك إعداد مسبق نستخدمه، أو نقوم بتهيئة أساسية
 import logging
 logging.basicConfig(
     level=logging.INFO,
@@ -114,7 +112,6 @@ class AdvancedKeepAlive:
         logger.info(f"📍 رابط الموقع: {formatted_url if formatted_url else 'غير متوفر'}")
         logger.info(f"⏱️ فترة الـ Ping: {self.ping_interval} ثانية")
         
-        # إرسال Ping فوري عند بدء التشغيل دون انتظار الفاصل الزمني
         if formatted_url:
             logger.info("📡 إرسال أول Ping فوري عند التشغيل...")
             self.ping_with_retry()
@@ -142,7 +139,6 @@ class AdvancedKeepAlive:
 
 
 def run_keep_alive_daemon():
-    """تشغيل Keep-Alive كـ Daemon في الخلفية"""
     keep_alive = AdvancedKeepAlive()
     keep_alive.start()
 
@@ -283,24 +279,20 @@ def is_docker_running(folder):
 
 app = Flask(__name__, static_folder=BASE_DIR)
 
-# ============== تنظيف جلسة قاعدة البيانات بعد كل طلب ==============
 @app.teardown_appcontext
 def shutdown_session(exception=None):
     db_session.remove()
 
-# ============== إعدادات الجلسة ==============
 app.secret_key = "ELMODMEN_HOST_STABLE_SECRET_KEY_2026"
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-# ============== قاعدة البيانات ==============
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
     DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'db.sqlite')}"
 
-# إصلاح رابط PostgreSQL (Render/Railway يستخدمون postgres:// القديم)
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
@@ -320,7 +312,6 @@ db_session = scoped_session(sessionmaker(
 Base = declarative_base()
 Base.query = db_session.query_property()
 
-# ============== تعريف الجداول ==============
 class User(Base):
     __tablename__ = 'users'
     username = Column(String(50), primary_key=True)
@@ -374,7 +365,6 @@ class Log(Base):
     message = Column(Text)
     timestamp = Column(DateTime, default=datetime.now)
 
-# إضافة أعمدة الدعم والتحديث إذا لم تكن موجودة
 try:
     with engine.connect() as conn:
         conn.execute(text("ALTER TABLE servers ADD COLUMN language VARCHAR(20) DEFAULT 'python'"))
@@ -391,9 +381,8 @@ except Exception as e:
 
 Base.metadata.create_all(bind=engine)
 
-# ============== بيانات المسؤول ==============
-ADMIN_USERNAME = "ehab77"
-ADMIN_PASSWORD_RAW = "ehab88#"
+ADMIN_USERNAME = "1002670694"
+ADMIN_PASSWORD_RAW = "ehab88"
 
 def create_default_admin():
     if not db_session.query(User).filter_by(username=ADMIN_USERNAME).first():
@@ -412,7 +401,6 @@ def create_default_admin():
 
 create_default_admin()
 
-# ============== دوال مساعدة ==============
 def get_user(username):
     return db_session.query(User).filter_by(username=username).first()
 
@@ -441,7 +429,6 @@ def mark_notification_read(notif_id):
         notif.is_read = True
         db_session.commit()
 
-# ============== المنافذ ==============
 PORT_RANGE_START = 8100
 PORT_RANGE_END = 9100
 
@@ -463,7 +450,6 @@ def get_assigned_port():
                 return port
     return PORT_RANGE_START
 
-# ============== مراقبة العمليات ==============
 def process_monitor():
     while True:
         try:
@@ -508,7 +494,6 @@ def restart_server(folder):
     start_server_process(folder)
 
 def start_server_docker(folder):
-    """تشغيل المشروع داخل Docker Container معزول"""
     srv = db_session.query(Server).filter_by(folder=folder).first()
     if not srv:
         return False
@@ -621,7 +606,6 @@ def start_server_process(folder):
         log_file.close()
         return False
 
-# تشغيل خيط مراقبة السيرفرات
 threading.Thread(target=process_monitor, daemon=True).start()
 
 def get_current_user():
@@ -649,7 +633,6 @@ def get_public_ip():
         except:
             return "127.0.0.1"
 
-# ============== دوال API Key ==============
 def generate_api_key():
     return secrets.token_urlsafe(32)
 
@@ -659,7 +642,186 @@ def get_user_by_api_key(api_key):
         return user.username, user
     return None, None
 
-# ============== مسارات العرض والواجهة ==============
+# ==========================================
+# 🤖 نظام بوت التليجرام المدمج والمحدث
+# ==========================================
+TELEGRAM_BOT_TOKEN = "9057598891:AAGU-aOtkAydGZqLjd2xRwepsvlQW6xcggE"
+TELEGRAM_ADMIN_ID = "1002670694"
+
+def send_telegram_message(chat_id, text, reply_markup=None):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML"
+    }
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        return response.json()
+    except Exception as e:
+        logger.error(f"Telegram send error: {e}")
+        return None
+
+def send_telegram_admin_notification(text, reply_markup=None):
+    return send_telegram_message(TELEGRAM_ADMIN_ID, text, reply_markup)
+
+def telegram_bot_worker():
+    offset = 0
+    logger.info("🤖 تم بدء تشغيل بوت التليجرام الداخلي بنجاح...")
+    while True:
+        try:
+            url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates?offset={offset}&timeout=30"
+            response = requests.get(url, timeout=35)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("ok"):
+                    for update in data.get("result", []):
+                        offset = update["update_id"] + 1
+                        
+                        # معالجة الرسائل العادية وأوامر البوت
+                        if "message" in update:
+                            msg = update["message"]
+                            chat_id = str(msg["chat"]["id"])
+                            text = msg.get("text", "").strip()
+                            user_name = msg["from"].get("first_name", "مستخدم")
+                            
+                            # إصلاح وتفعيل أمر البدء /start مع الأزرار المطلوبة
+                            if text == "/start":
+                                markup = {
+                                    "keyboard": [
+                                        [{"text": "⏳ الطلبات المعلقة"}, {"text": "📦 الطلبات القادمة"}],
+                                        [{"text": "📊 الإحصائيات"}, {"text": "👑 قائمة الأدمن"}]
+                                    ],
+                                    "resize_keyboard": True
+                                }
+                                welcome_text = f"مرحباً بك يا <b>{user_name}</b> في لوحة تحكم البوت الرسمية.\nاختر ما يناسبك من الأزرار أدناه:"
+                                send_telegram_message(chat_id, welcome_text, markup)
+                                
+                            elif text == "⏳ الطلبات المعلقة" or text == "الطلبات المتعلقة":
+                                if chat_id == TELEGRAM_ADMIN_ID:
+                                    with app.app_context():
+                                        pending_users = db_session.query(User).filter_by(is_pending=True).all()
+                                        if not pending_users:
+                                            send_telegram_message(chat_id, "لا توجد طلبات معلقة حالياً.")
+                                        else:
+                                            for u in pending_users:
+                                                markup = {
+                                                    "inline_keyboard": [
+                                                        [
+                                                            {"text": "✅ قبول", "callback_data": f"accept_{u.username}"},
+                                                            {"text": "❌ رفض", "callback_data": f"reject_{u.username}"}
+                                                        ]
+                                                    ]
+                                                }
+                                                send_telegram_message(chat_id, f"👤 طلب حساب جديد:\nالمستخدم: <code>{u.username}</code>\nالتاريخ: {u.created_at}", markup)
+                                else:
+                                    send_telegram_message(chat_id, "⚠️ عذراً، هذا القسم مخصص لمسؤول السيرفر فقط.")
+                                    
+                            elif text == "📦 الطلبات القادمة":
+                                if chat_id == TELEGRAM_ADMIN_ID:
+                                    with app.app_context():
+                                        servers = db_session.query(Server).all()
+                                        if not servers:
+                                            send_telegram_message(chat_id, "لا توجد سيرفرات أو طلبات سيرفرات قادمة حالياً.")
+                                        else:
+                                            msg_text = "📦 <b>قائمة السيرفرات والطلبات القادمة:</b>\n\n"
+                                            for srv in servers[:15]:
+                                                msg_text += f"🔹 الاسم: {srv.name}\n👤 المالك: {srv.owner}\n📊 الحالة: {srv.status}\n-------------------\n"
+                                            send_telegram_message(chat_id, msg_text)
+                                else:
+                                    send_telegram_message(chat_id, "⚠️ هذا الأمر مخصص للمسؤول فقط.")
+                                    
+                            elif text == "📊 الإحصائيات":
+                                with app.app_context():
+                                    u_count = db_session.query(User).count()
+                                    s_count = db_session.query(Server).count()
+                                    running_s_count = db_session.query(Server).filter_by(status="Running").count()
+                                    cpu = psutil.cpu_percent()
+                                    mem = psutil.virtual_memory().percent
+                                    disk = psutil.disk_usage('/').percent
+                                    stats_msg = (
+                                        f"📊 <b>إحصائيات النظام الشاملة:</b>\n\n"
+                                        f"👥 عدد المستخدمين: <b>{u_count}</b>\n"
+                                        f"🖥️ إجمالي السيرفرات: <b>{s_count}</b>\n"
+                                        f"🚀 السيرفرات العاملة: <b>{running_s_count}</b>\n"
+                                        f"💻 استهلاك المعالج (CPU): <b>{cpu}%</b>\n"
+                                        f"🧠 استهلاك الذاكرة (RAM): <b>{mem}%</b>\n"
+                                        f"💾 استهلاك التخزين: <b>{disk}%</b>"
+                                    )
+                                    send_telegram_message(chat_id, stats_msg)
+                                    
+                            elif text == "👑 قائمة الأدمن":
+                                if chat_id == TELEGRAM_ADMIN_ID:
+                                    markup = {
+                                        "keyboard": [
+                                            [{"text": "⏳ الطلبات المعلقة"}, {"text": "📦 الطلبات القادمة"}],
+                                            [{"text": "📊 الإحصائيات"}, {"text": "🔙 القائمة الرئيسية"}]
+                                        ],
+                                        "resize_keyboard": True
+                                    }
+                                    send_telegram_message(chat_id, "👑 <b>قائمة الأدمن المتكاملة:</b>\nاختر العملية المطلوبة:", markup)
+                                else:
+                                    send_telegram_message(chat_id, "⚠️ عذراً، هذه القائمة مخصصة للمسؤول فقط.")
+                                    
+                            elif text == "🔙 القائمة الرئيسية":
+                                markup = {
+                                    "keyboard": [
+                                        [{"text": "⏳ الطلبات المعلقة"}, {"text": "📦 الطلبات القادمة"}],
+                                        [{"text": "📊 الإحصائيات"}, {"text": "👑 قائمة الأدمن"}]
+                                    ],
+                                    "resize_keyboard": True
+                                }
+                                send_telegram_message(chat_id, "القائمة الرئيسية:", markup)
+                        
+                        # معالجة الضغط على أزرار القبول والرفض (Inline Query Callbacks)
+                        elif "callback_query" in update:
+                            cq = update["callback_query"]
+                            cq_id = cq["id"]
+                            chat_id = str(cq["message"]["chat"]["id"])
+                            data_callback = cq.get("data", "")
+                            
+                            if chat_id == TELEGRAM_ADMIN_ID:
+                                with app.app_context():
+                                    if data_callback.startswith("accept_"):
+                                        target_username = data_callback.replace("accept_", "")
+                                        u = db_session.query(User).filter_by(username=target_username).first()
+                                        if u:
+                                            u.is_pending = False
+                                            db_session.commit()
+                                            send_telegram_message(chat_id, f"✅ <b>تم قبول المستخدم {target_username} بنجاح!</b>")
+                                            add_notification(target_username, "✅ تم قبول حسابك", "مرحباً! تمت الموافقة على حسابك في المنصة.")
+                                        else:
+                                            send_telegram_message(chat_id, "❌ المستخدم غير موجود أو تم حذفه مسبقاً.")
+                                            
+                                    elif data_callback.startswith("reject_"):
+                                        target_username = data_callback.replace("reject_", "")
+                                        u = db_session.query(User).filter_by(username=target_username).first()
+                                        if u:
+                                            db_session.delete(u)
+                                            db_session.commit()
+                                            send_telegram_message(chat_id, f"❌ <b>تم رفض وحذف المستخدم {target_username}.</b>")
+                                        else:
+                                            send_telegram_message(chat_id, "❌ المستخدم غير موجود.")
+                                            
+                            try:
+                                requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/answerCallbackQuery", json={"callback_query_id": cq_id}, timeout=5)
+                            except:
+                                pass
+        except Exception as e:
+            logger.error(f"Telegram bot polling error: {e}")
+            time.sleep(5)
+        time.sleep(1)
+
+def start_telegram_bot_thread():
+    t = threading.Thread(target=telegram_bot_worker, daemon=True)
+    t.start()
+
+
+# ==========================================
+# مسارات العرض والواجهة
+# ==========================================
 @app.route('/')
 def home():
     if 'username' not in session:
@@ -725,7 +887,21 @@ def api_register():
     os.makedirs(os.path.join(user_dir, "SERVERS"), exist_ok=True)
     
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr or 'غير معروف').split(',')[0].strip()
-    add_notification(ADMIN_USERNAME, "⏳ طلب حساب جديد", f"طلب تسجيل جديد ينتظر موافقتك\n👤 الاسم: {username}\n🌐 IP: {client_ip}\n\nاذهب إلى لوحة الأدمن > الحسابات المعلقة للموافقة أو الرفض")
+    add_notification(ADMIN_USERNAME, "⏳ طلب حساب جديد", f"طلب تسجيل جديد ينتظر موافقتك\n👤 الاسم: {username}\n🌐 IP: {client_ip}")
+    
+    # إرسال الطلب تلقائياً إلى بوت التليجرام الخاص بالأدمن مع أزرار القبول والرفض
+    try:
+        markup = {
+            "inline_keyboard": [
+                [
+                    {"text": "✅ قبول", "callback_data": f"accept_{username}"},
+                    {"text": "❌ رفض", "callback_data": f"reject_{username}"}
+                ]
+            ]
+        }
+        send_telegram_admin_notification(f"🔔 <b>طلب تسجيل حساب جديد!</b>\n\n👤 المستخدم: <code>{username}</code>\n🌐 IP: {client_ip}\n⏳ الحالة: قيد الانتظار", markup)
+    except Exception as e:
+        logger.error(f"Telegram auto notification error: {e}")
     
     return jsonify({"success": True, "message": "تم إرسال طلب إنشاء الحساب! سيتم مراجعته من قِبل المسؤول وستُشعر بالنتيجة قريباً.", "pending": True})
 
@@ -814,7 +990,7 @@ def approve_user():
         return jsonify({"success": False, "message": "المستخدم غير موجود"})
     user.is_pending = False
     db_session.commit()
-    add_notification(username, "✅ تم قبول حسابك", "مرحباً! تمت الموافقة على حسابك في 𝙴𝙻𝙼𝙾𝙳𝙼𝙴𝙽 𝙷𝙾𝚂𝚃. يمكنك الآن تسجيل الدخول.")
+    add_notification(username, "✅ تم قبول حسابك", "مرحباً! تمت الموافقة على حسابك. يمكنك الآن تسجيل الدخول.")
     return jsonify({"success": True, "message": f"تم قبول {username}"})
 
 @app.route('/api/reject_user', methods=['POST'])
@@ -823,7 +999,6 @@ def reject_user():
         return jsonify({"success": False}), 403
     data = request.get_json()
     username = data.get("username", "").strip()
-    reason = data.get("reason", "رُفض الطلب من قِبل الإدارة")
     user = db_session.query(User).filter_by(username=username).first()
     if not user:
         return jsonify({"success": False, "message": "المستخدم غير موجود"})
@@ -837,7 +1012,7 @@ def admin_generate_api_key():
         return jsonify({"success": False}), 403
     user = db_session.query(User).filter_by(username=ADMIN_USERNAME).first()
     if not user:
-        return jsonify({"success": False, "message": "المسؤول غير موجود في قاعدة البيانات"})
+        return jsonify({"success": False, "message": "المسؤول غير موجود"})
     new_key = generate_api_key()
     user.api_key = new_key
     db_session.commit()
@@ -854,7 +1029,6 @@ def link_telegram():
     db_session.commit()
     return jsonify({"success": True})
 
-# ============== API الإشعارات ==============
 @app.route('/api/notifications', methods=['GET'])
 def get_notifications():
     if 'username' not in session:
@@ -882,7 +1056,6 @@ def mark_read():
         mark_notification_read(notif_id)
     return jsonify({"success": True})
 
-# ============== API المسؤول ==============
 @app.route('/api/admin/upgrade-user', methods=['POST'])
 def admin_upgrade_user():
     if 'username' not in session or not is_admin(session['username']):
@@ -898,8 +1071,7 @@ def admin_upgrade_user():
     user.max_servers = 999999
     user.max_file_size_mb = 500
     db_session.commit()
-    add_notification(target_username, "⭐ تمت ترقيتك", "لقد تمت ترقيتك إلى صلاحيات غير محدودة! يمكنك الآن إنشاء سيرفرات غير محدودة ورفع ملفات بحجم كبير.")
-    add_notification(ADMIN_USERNAME, "⭐ ترقية مستخدم", f"تم ترقية المستخدم {target_username} إلى صلاحيات غير محدودة")
+    add_notification(target_username, "⭐ تمت ترقيتك", "لقد تمت ترقيتك إلى صلاحيات غير محدودة!")
     return jsonify({"success": True, "message": f"تم ترقية {target_username} بنجاح"})
 
 @app.route('/api/admin/broadcast', methods=['POST'])
@@ -912,7 +1084,6 @@ def admin_broadcast():
     if not title or not message:
         return jsonify({"success": False, "message": "العنوان والرسالة مطلوبان"})
     add_notification('all', f"📢 {title}", message)
-    add_notification(ADMIN_USERNAME, "📢 إذاعة", f"تم إرسال إذاعة: {title}")
     return jsonify({"success": True, "message": "تم إرسال الإذاعة لجميع المستخدمين"})
 
 @app.route('/api/admin/users')
@@ -960,7 +1131,6 @@ def admin_create_user():
     user_dir = os.path.join(USERS_DIR, username)
     os.makedirs(user_dir, exist_ok=True)
     os.makedirs(os.path.join(user_dir, "SERVERS"), exist_ok=True)
-    add_notification(ADMIN_USERNAME, "👤 مستخدم جديد", f"تم إنشاء حساب جديد بواسطة المسؤول: {username}")
     return jsonify({"success": True, "message": "✅ تم إنشاء الحساب"})
 
 @app.route('/api/admin/delete-user', methods=['POST'])
@@ -998,7 +1168,6 @@ def admin_delete_user():
         return jsonify({"success": True, "message": f"🗑️ تم حذف {username}"})
     return jsonify({"success": False, "message": "المستخدم غير موجود"})
 
-# ============== API النظام ==============
 @app.route('/api/system/metrics')
 def get_metrics():
     return jsonify({
@@ -1011,7 +1180,6 @@ def get_metrics():
 def ping():
     return jsonify({"status": "pong", "timestamp": str(datetime.now())})
 
-# ============== السيرفرات ==============
 @app.route('/api/servers')
 def list_servers():
     if "username" not in session:
@@ -1224,7 +1392,6 @@ def get_server_stats(folder):
         "ip": get_public_ip()
     })
 
-# ============== API الملفات ==============
 @app.route('/api/files/list/<folder>')
 def list_server_files(folder):
     if "username" not in session:
@@ -1445,7 +1612,6 @@ def install_requirements(folder):
             return jsonify({"success": False, "message": str(e)})
     return jsonify({"success": False, "message": "requirements.txt غير موجود"})
 
-# ============== API للبوت ==============
 @app.route('/api/bot/verify', methods=['POST'])
 def bot_verify():
     data = request.get_json()
@@ -1852,8 +2018,6 @@ def bot_create_server():
     db_session.commit()
     return jsonify({"success": True, "message": f"✅ تم إنشاء {name}", "folder": folder, "port": assigned_port})
 
-
-# ============== API Docker ==============
 @app.route('/api/docker/status')
 def docker_status():
     if "username" not in session:
@@ -1885,7 +2049,6 @@ def api_generate_dockerfile(folder):
         f.write(content)
     return jsonify({"success": True, "message": "✅ تم إنشاء Dockerfile", "content": content})
 
-# ============== Admin: تحميل ملفات أي مستخدم ==============
 @app.route('/api/admin/download_user_file', methods=['POST'])
 def admin_download_user_file():
     if "username" not in session or not is_admin(session["username"]):
@@ -1948,11 +2111,16 @@ def admin_list_user_files(username, folder):
         pass
     return jsonify({"success": True, "files": files, "server_path": srv.path})
 
-# ============== التشغيل النهائي والنظام الأساسي ==============
+# ==========================================
+# التشغيل النهائي والتكامل
+# ==========================================
 if __name__ == "__main__":
-    # تشغيل نظام Keep-Alive في خيط منفصل (Background Thread) ليعمل تلقائياً مع السيرفر
+    # تشغيل Keep-Alive
     keep_alive_thread = threading.Thread(target=run_keep_alive_daemon, daemon=True)
     keep_alive_thread.start()
+    
+    # تشغيل بوت التليجرام في الخلفية
+    start_telegram_bot_thread()
     
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
