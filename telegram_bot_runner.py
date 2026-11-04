@@ -132,7 +132,7 @@ def admin_web_panel():
 
 # ========== إعدادات البوت الأساسية ==========
 BOT_TOKEN = "9294301891:AAG4oWwRlxxnyCIe3yIutxr_NSELsgBic68"
-API_BASE_URL = "http://127.0.0.1:5000"
+API_BASE_URL = "https://ehab-1-0rsm.onrender.com"
 
 # ========== قائمة المسؤولين (أدمن واحد رئيسي) ==========
 ADMIN_IDS = [
